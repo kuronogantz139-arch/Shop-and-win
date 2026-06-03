@@ -20,15 +20,15 @@ export const FIELD_MAP = {
   age: "Age",
   gender: "Gender",
   email: "Email",
-  idNumber: "IDNumber",
+  idNumber: "IDNUmber",               // note: SharePoint typo in internal name
   address: "Address",
-  shopName: "ShopName",
-  price: "Price",
-  notes: "Notes",
+  shopName: "ShopName",               // returns as string[]
+  price: "PurchaseAmount",            // display name "Price", internal "PurchaseAmount"
+  notes: "_x0645__x0644__x0627__x062d__x06", // Arabic display name "ملاح..." URL-encoded
   numberOfCoupons: "NumberOfCoupons",
-  receiptNumber: "ReceiptNumber",
+  receiptNumber: "receiptnumber",     // all lowercase in SharePoint
   couponCode: "CouponCode",
-  submissionDate: "SubmissionDate",
+  submissionDate: "SubmissionDate",   // display name is "Date"
 } as const;
 
 export interface SyncEntry {
@@ -84,6 +84,11 @@ export function parsePriceToInteger(raw: unknown): number | null {
 
 function asString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
+  // ShopName (and similar choice columns) can arrive as a string array
+  if (Array.isArray(value)) {
+    const joined = value.map((v) => String(v).trim()).filter(Boolean).join(", ");
+    return joined === "" ? null : joined;
+  }
   const s = String(value).trim();
   return s === "" ? null : s;
 }
