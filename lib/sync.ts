@@ -5,7 +5,7 @@
  */
 
 import { loadConfig } from "./config.js";
-import { createGraphClient, fetchListItemsSince } from "./graph.js";
+import { createGraphClient, fetchListItems } from "./graph.js";
 import {
   createSqlClient,
   ensureSchema,
@@ -33,11 +33,7 @@ export async function runSync(): Promise<SyncResult> {
   const watermarkBefore = await getWatermark(sql);
 
   const graph = createGraphClient(config);
-  const items: GraphListItem[] = await fetchListItemsSince(
-    graph,
-    config,
-    watermarkBefore,
-  );
+  const items: GraphListItem[] = await fetchListItems(graph, config);
 
   let upserted = 0;
   let maxCreated = watermarkBefore;

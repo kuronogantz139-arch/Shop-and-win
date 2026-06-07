@@ -45,23 +45,22 @@ export function createGraphClient(config: AppConfig): Client {
  *    row creation time, index that column and swap the field name here.
  *  - Graph paginates with `@odata.nextLink`; we follow it to completion.
  */
-export async function fetchListItemsSince(
+export async function fetchListItems(
   client: Client,
   config: AppConfig,
-  sinceIso: string | null,
 ): Promise<GraphListItem[]> {
   const base = `/sites/${config.sharepointSiteId}/lists/${config.sharepointListId}/items`;
 
-  let request = client
+  // Fetch all items ordered by creation time. We don't filter here because
+  // Graph rejects $filter on createdDateTime for SharePoint list items.
+  // The upsert (ON CONFLICT DO UPDATE) in db.ts makes re-syncing existing
+  // rows a safe no-op, so fetching everything each run is correct.
+  const request = client
     .api(base)
     .header("Prefer", "HonorNonIndexedQueriesWarningMayFailRandomly")
     .expand("fields")
     .top(config.pageSize)
     .orderby("createdDateTime asc");
-
-  if (sinceIso) {
-    request = request.filter(`createdDateTime gt ${sinceIso}`);
-  }
 
   const items: GraphListItem[] = [];
   let page: PageCollection = await request.get();
