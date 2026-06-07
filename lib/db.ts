@@ -77,6 +77,20 @@ export async function setWatermark(sql: Sql, iso: string): Promise<void> {
  * the same item is therefore a no-op data-wise (idempotent), which makes the
  * whole pipeline safe to retry.
  */
+/** Deletes any rows whose sharepoint_id is not in the current fetch. */
+export async function deleteRemovedEntries(
+  sql: Sql,
+  currentIds: string[],
+): Promise<number> {
+  if (currentIds.length === 0) return 0;
+  const rows = (await sql`
+    DELETE FROM sharepoint_entries
+    WHERE sharepoint_id != ALL(${currentIds})
+    RETURNING sharepoint_id
+  `) as Array<{ sharepoint_id: string }>;
+  return rows.length;
+}
+
 export async function upsertEntry(sql: Sql, e: SyncEntry): Promise<void> {
   await sql`
     INSERT INTO sharepoint_entries (
