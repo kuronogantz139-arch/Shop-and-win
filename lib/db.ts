@@ -77,12 +77,30 @@ export async function setWatermark(sql: Sql, iso: string): Promise<void> {
  * the same item is therefore a no-op data-wise (idempotent), which makes the
  * whole pipeline safe to retry.
  */
-/** Deletes any rows whose sharepoint_id is not in the current fetch. */
+/** Deletes any rows whose sharepoint_id is not in the current fetch.
+ *  Safety guard: if the fetch returned fewer than 80% of the rows currently
+ *  in the DB, skip deletion — it likely means SharePoint returned an
+ *  incomplete result set, and we must not mass-delete valid records.
+ */
 export async function deleteRemovedEntries(
   sql: Sql,
   currentIds: string[],
 ): Promise<number> {
   if (currentIds.length === 0) return 0;
+
+  const countRows = (await sql`
+    SELECT COUNT(*)::int AS total FROM sharepoint_entries
+  `) as Array<{ total: number }>;
+  const dbTotal = countRows[0]?.total ?? 0;
+
+  // If the fetch looks incomplete (< 80% of what we have), abort deletion.
+  if (dbTotal > 0 && currentIds.length < dbTotal * 0.8) {
+    console.warn(
+      `[sync] Skipping deletion: fetched ${currentIds.length} items but DB has ${dbTotal} rows — looks like a partial fetch.`,
+    );
+    return 0;
+  }
+
   const rows = (await sql`
     DELETE FROM sharepoint_entries
     WHERE sharepoint_id != ALL(${currentIds})

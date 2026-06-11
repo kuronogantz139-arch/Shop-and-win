@@ -51,16 +51,14 @@ export async function fetchListItems(
 ): Promise<GraphListItem[]> {
   const base = `/sites/${config.sharepointSiteId}/lists/${config.sharepointListId}/items`;
 
-  // Fetch all items ordered by creation time. We don't filter here because
-  // Graph rejects $filter on createdDateTime for SharePoint list items.
-  // The upsert (ON CONFLICT DO UPDATE) in db.ts makes re-syncing existing
-  // rows a safe no-op, so fetching everything each run is correct.
+  // Plain fetch — no $filter, no $orderby, no Prefer header.
+  // The "HonorNonIndexedQueries" Prefer header was causing SharePoint to
+  // return partial result sets, which made the deletion logic incorrectly
+  // remove rows that still exist in SharePoint.
   const request = client
     .api(base)
-    .header("Prefer", "HonorNonIndexedQueriesWarningMayFailRandomly")
     .expand("fields")
-    .top(config.pageSize)
-    .orderby("createdDateTime asc");
+    .top(config.pageSize);
 
   const items: GraphListItem[] = [];
   let page: PageCollection = await request.get();
